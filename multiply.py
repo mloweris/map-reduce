@@ -1,43 +1,52 @@
-import MapReduce
-import sys
-
-"""
-Matrix Multiply Example in the Simple Python MapReduce Framework
-"""
-
-mr = MapReduce.MapReduce()
-
-# =============================
-# Do not modify above this line
-
-n = 5
-
-def mapper(record):
-        # key: position in nxn matrix
-        # value: row
-        if record[0] == 'a': 
-                for i in range(n):
-                        mr.emit_intermediate((record[1], i), record)
-        if record[0] == 'b':
-                for i in range(n):
-                        mr.emit_intermediate((i, record[2]), record)
-
-def reducer(key, list_of_values):
-        # key: position on nxn matrix
-        # value: list of records that may have an effect on the position
-        sum = 0
-        a = []
-        b = []
-        for record in list_of_values:
-                a.append(record) if record[0] == 'a' else b.append(record)
-        for ra in a:
-                for rb in b:
-                        if ra[2] == rb[1]:
-                                sum += ra[3] * rb[3]; 
-        mr.emit((key[0], key[1], sum))
-
-# Do not modify below this line
-# =============================
-if __name__ == '__main__':
-        inputdata = open('data.json')
-        mr.execute(inputdata, mapper, reducer)
+import MapReduce  
+import sys  
+   
+mr = MapReduce.MapReduce()  
+   
+ # =============================  
+ # Do not modify above this line  
+   
+def mapper(record):  
+        # key: matrix (a,b)  
+        # value: i,j,value  
+        key = record[0]  
+        if key=='a':#since it's A*B  
+           mr.emit_intermediate(key, [record[1],record[2],record[3]])#index a on i,j,value  
+        else:  
+           mr.emit_intermediate(key, [record[2],record[1],record[3]])#and b on j,i,value  
+   
+   
+def reducer(key, list_of_values):  
+        #key: matrix a or b  
+        #list_of_values: i,j,value for a and j,i,value for b  
+        #mr.intermediate: contains all rows from both a and b in a dictionary keyed on a,b  
+        a={}  
+        b={}  
+        if key=='a':#computing A*B  
+           #I NEED THE MATRIX DIMENSIONS!!! (5)  
+           #populate two dictionaries with our known values  
+           for v in list_of_values:  
+                a[(v[0], v[1])]=v[2]  
+           for r in mr.intermediate['b']:  
+                b[(r[0], r[1])]=r[2]  
+           #and fill the blanks  
+           for i in range(11):  
+                for j in range(11):  
+                     if (i,j) not in a.keys():  
+                          a[(i,j)]=0  
+                     if (j,i) not in b.keys():  
+                          b[(j,i)]=0  
+           result=0  
+           #compute the multiplication A*Bij = SUM(Aik * Bkj) for k in 0..4  
+           for i in range(11):  
+                for j in range(11):  
+                     for k in range(11):  
+                          result+=a[(i,k)]*b[(j,k)]  
+                     mr.emit((i,j,result))  
+                     result=0            
+   
+# Do not modify below this line  
+# =============================  
+if __name__ == '__main__':  
+        inputdata = open(sys.argv[1])  
+        mr.execute(inputdata, mapper, reducer)  
